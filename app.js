@@ -1,13 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // L'URL de base de votre serveur reste la même
-    const SOCKET_URL = 'https://miaou.vps.webdock.cloud';
+    // URL directe vers votre serveur WebSocket
+    // wss:// est pour une connexion sécurisée (équivalent de https://)
+    const WS_URL = 'wss://miaou.vps.webdock.cloud/com/';
 
-    // --- MODIFICATION ICI : On spécifie le chemin dédié à notre application ---
-    const socket = io(SOCKET_URL, {
-        path: '/com/socket.io' // C'est cette ligne qui dit au client d'utiliser la nouvelle route
-    });
-
-    // --- Sélection des éléments du DOM ---
+    // Éléments du DOM (inchangés)
     const pseudoInput = document.getElementById('pseudo-input');
     const btnOnVaDire = document.getElementById('btn-on-va-dire');
     const btnNotamment = document.getElementById('btn-notamment');
@@ -16,48 +12,75 @@ document.addEventListener('DOMContentLoaded', () => {
     const notificationEl = document.getElementById('notification');
     const modeStatusEl = document.getElementById('mode-status');
 
-    let currentPseudo = '';
+    let ws; // Variable pour contenir notre connexion WebSocket
+    
+    function connect() {
+        ws = new WebSocket(WS_URL);
 
-    // --- Événements émis vers le serveur (inchangés) ---
+        ws.onopen = () => {
+            console.log('Connecté au serveur WebSocket !');
+            modeStatusEl.textContent = '';
+        };
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            // On écoute un seul événement et on regarde le type
+            if (data.type === 'updateState') {
+                const state = data.payload;
+                
+                countOnVaDire.textContent = state.compteurs['on va dire'];
+                countNotamment.textContent = state.compteurs['notamment'];
+
+                if (state.lastScorer.pseudo) {
+                    notificationEl.textContent = `${state.lastScorer.pseudo} a marqué le point !`;
+                    setTimeout(() => { notificationEl.textContent = ''; }, 2500);
+                }
+                
+                const buttonsDisabled = !state.isLiveMode;
+                btnOnVaDire.disabled = buttonsDisabled;
+                btnNotamment.disabled = buttonsDisabled;
+                
+                modeStatusEl.textContent = buttonsDisabled ? 'Mode Scoreboard : les compteurs sont en pause.' : '';
+            }
+        };
+
+        ws.onclose = () => {
+            console.log('Déconnecté du serveur WebSocket. Tentative de reconnexion dans 3 secondes...');
+            modeStatusEl.textContent = 'Déconnecté. Reconnexion en cours...';
+            // Simple logique de reconnexion
+            setTimeout(connect, 3000);
+        };
+
+        ws.onerror = (error) => {
+            console.error('Erreur WebSocket:', error);
+            ws.close();
+        };
+    }
+
+    // Helper pour envoyer des messages au serveur
+    function sendMessage(type, payload) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type, payload }));
+        }
+    }
+
     pseudoInput.addEventListener('input', (e) => {
-        currentPseudo = e.target.value;
-        socket.emit('setPseudo', currentPseudo);
+        sendMessage('setPseudo', e.target.value);
     });
 
     const handleIncrement = (button) => {
-        if (!currentPseudo) {
+        if (!pseudoInput.value) {
             alert('Veuillez choisir un pseudo avant de jouer !');
             return;
         }
         const phrase = button.dataset.phrase;
-        socket.emit('incrementCounter', { phrase });
+        sendMessage('incrementCounter', { phrase });
     };
 
     btnOnVaDire.addEventListener('click', () => handleIncrement(btnOnVaDire));
     btnNotamment.addEventListener('click', () => handleIncrement(btnNotamment));
 
-    // --- Événements reçus du serveur (inchangés) ---
-    socket.on('updateState', (state) => {
-        countOnVaDire.textContent = state.compteurs['on va dire'];
-        countNotamment.textContent = state.compteurs['notamment'];
-
-        if (state.lastScorer.pseudo) {
-            notificationEl.textContent = `${state.lastScorer.pseudo} a marqué le point !`;
-            setTimeout(() => { notificationEl.textContent = ''; }, 2500);
-        }
-        
-        const buttonsDisabled = !state.isLiveMode;
-        btnOnVaDire.disabled = buttonsDisabled;
-        btnNotamment.disabled = buttonsDisabled;
-        
-        if (buttonsDisabled) {
-            modeStatusEl.textContent = 'Mode Scoreboard : les compteurs sont en pause.';
-        } else {
-            modeStatusEl.textContent = '';
-        }
-    });
-
-    socket.on('error', (error) => {
-        alert(`Erreur : ${error.message}`);
-    });
+    // Lancer la connexion initiale
+    connect();
 });
