@@ -1,1 +1,34 @@
-acab
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Le Compteur MIAGE</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="app-container">
+        <h1 class="title">Le Compteur MIAGE</h1>
+
+        <input type="text" id="pseudo-input" class="pseudo-input" placeholder="Votre pseudo ici..." maxlength="15">
+
+        <div class="counters-wrapper">
+            <button id="btn-on-va-dire" class="counter-button" data-phrase="on va dire">
+                "on va dire"
+                <span id="count-on-va-dire" class="count">0</span>
+            </button>
+            <button id="btn-notamment" class="counter-button" data-phrase="notamment">
+                "notamment"
+                <span id="count-notamment" class="count">0</span>
+            </button>
+        </div>
+
+        <div id="notification" class="notification"></div>
+        <div id="mode-status" class="mode-status"></div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="app.js" defer></script>
+</body>
+</html>
